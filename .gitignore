@@ -26,3 +26,5 @@ evaluation/test_filelists/lr*.txt
 # Ignore project-specific directories
 checkpoints/
 data/
+/home/hamza/Desktop/translater/data
+/home/hamza/Desktop/translater/myenv
