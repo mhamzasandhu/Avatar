@@ -1,18 +1,28 @@
+# Ignore model and checkpoint files
 *.pkl
-*.jpg
-*.mp4
 *.pth
-*.pyc
-__pycache__
 *.h5
+
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore media files
+*.jpg
+*.jpeg
+*.png
+*.mp4
 *.avi
 *.wav
-filelists/*.txt
-evaluation/test_filelists/lr*.txt
-*.pyc
+*.mp3
 *.mkv
 *.gif
 *.webm
-*.mp3
-/home/hamza/Desktop/translater/Wav2Lip/checkpoints
-/home/hamza/Desktop/translater/Wav2Lip/data
+
+# Ignore specific directories and data files
+filelists/*.txt
+evaluation/test_filelists/lr*.txt
+
+# Ignore project-specific directories
+checkpoints/
+data/
