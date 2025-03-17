@@ -15,3 +15,4 @@ evaluation/test_filelists/lr*.txt
 *.webm
 *.mp3
 /home/hamza/Desktop/translater/Wav2Lip/checkpoints
+/home/hamza/Desktop/translater/Wav2Lip/data
