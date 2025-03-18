@@ -27,12 +27,15 @@
 # app = FastAPI()
 # security = HTTPBearer()
 
-# # Paths for Wav2Lip
-# UPLOAD_DIR = "/home/hamza/Desktop/translater/Wav2Lip/uploads/"
-# OUTPUT_VIDEO_PATH = "/home/hamza/Desktop/translater/Wav2Lip/results/output.mp4"
-# CHECKPOINT_PATH = "/home/hamza/Desktop/translater/Wav2Lip/checkpoints/wav2lip_gan.pth"
+# # Dynamic Paths
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Root directory of the script
+# UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")  # Upload directory
+# OUTPUT_DIR = os.path.join(BASE_DIR, "results")  # Output directory
+# CHECKPOINT_PATH = os.path.join(BASE_DIR, "checkpoints", "wav2lip_gan.pth")  # Wav2Lip model path
 
-# os.makedirs(UPLOAD_DIR, exist_ok=True)  # Ensure upload directory exists
+# # Ensure directories exist
+# os.makedirs(UPLOAD_DIR, exist_ok=True)
+# os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # # Generate JWT Token
 # @app.get("/token/")
@@ -87,8 +90,8 @@
 #     return response.choices[0].message.content
 
 # # Convert Text to Speech
-# def text_to_speech(text, output_file="output.wav"):
-#     model_path = "/home/hamza/Desktop/translater/data/eng"
+# def text_to_speech(text, output_file):
+#     model_path = os.path.join(BASE_DIR, "data", "eng")  # Dynamically fetch TTS model
 #     tts = TTS(model_path)
 #     wav = tts.synthesis(text)
     
@@ -99,16 +102,16 @@
 #         raise RuntimeError("Speech synthesis failed.")
 
 # # Generate Lip-Synced Video
-# def generate_lip_synced_video(audio_path, face_video_path):
+# def generate_lip_synced_video(audio_path, face_video_path, output_video_path):
 #     cmd = [
 #         "python", "inference.py",
 #         "--checkpoint_path", CHECKPOINT_PATH,
 #         "--face", face_video_path,
 #         "--audio", audio_path,
-#         "--outfile", OUTPUT_VIDEO_PATH
+#         "--outfile", output_video_path
 #     ]
 #     subprocess.run(cmd, check=True)
-#     return OUTPUT_VIDEO_PATH
+#     return output_video_path
 
 # # API Endpoint: Summarize + Speech + Video
 # @app.post("/summarize_speech_video/")
@@ -118,7 +121,7 @@
 #     credentials: HTTPAuthorizationCredentials = Depends(verify_token)
 # ):
 #     try:
-#         # Save face video
+#         # Save face video dynamically
 #         video_path = os.path.join(UPLOAD_DIR, face_video.filename)
 #         with open(video_path, "wb") as f:
 #             f.write(face_video.file.read())
@@ -132,15 +135,17 @@
 #         summary = summarize_text(extracted_text)
 
 #         # Convert to Speech
-#         audio_path = text_to_speech(summary, output_file="output.wav")
+#         audio_output_path = os.path.join(OUTPUT_DIR, "output.wav")
+#         text_to_speech(summary, audio_output_path)
 
 #         # Generate Lip-Synced Video
-#         video_output_path = generate_lip_synced_video(audio_path, video_path)
+#         video_output_path = os.path.join(OUTPUT_DIR, "output.mp4")
+#         generate_lip_synced_video(audio_output_path, video_path, video_output_path)
 
 #         return {
 #             "message": "Process completed successfully",
 #             "summary": summary,
-#             "audio_path": audio_path,
+#             "audio_path": audio_output_path,
 #             "video_path": video_output_path
 #         }
 
@@ -157,9 +162,9 @@ import soundfile as sf
 import jwt
 import datetime
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import pipeline
 from ttsmms import TTS
 from dotenv import load_dotenv
 from groq import Groq
@@ -180,8 +185,8 @@ app = FastAPI()
 security = HTTPBearer()
 
 # Dynamic Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Root directory of the script
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")  # Upload directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Root directory
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")  # Uploads directory
 OUTPUT_DIR = os.path.join(BASE_DIR, "results")  # Output directory
 CHECKPOINT_PATH = os.path.join(BASE_DIR, "checkpoints", "wav2lip_gan.pth")  # Wav2Lip model path
 
@@ -189,7 +194,7 @@ CHECKPOINT_PATH = os.path.join(BASE_DIR, "checkpoints", "wav2lip_gan.pth")  # Wa
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Generate JWT Token
+#  Generate JWT Token
 @app.get("/token/")
 def generate_token():
     expiration_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
@@ -297,12 +302,32 @@ async def process_file(
         return {
             "message": "Process completed successfully",
             "summary": summary,
-            "audio_path": audio_output_path,
-            "video_path": video_output_path
+            "audio_url": f"http://204.12.253.252:8000/download_audio/",
+            "video_url": f"http://204.12.253.252:8000/download_video/"
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Run API
+# API Endpoint to Download Generated Audio
+@app.get("/download_audio/")
+def download_audio():
+    audio_path = os.path.join(OUTPUT_DIR, "output.wav")
+
+    if not os.path.exists(audio_path):
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+
+    return FileResponse(audio_path, filename="output.wav", media_type="audio/wav")
+
+# API Endpoint to Download Generated Video
+@app.get("/download_video/")
+def download_video():
+    video_path = os.path.join(OUTPUT_DIR, "output.mp4")
+
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video file not found.")
+
+    return FileResponse(video_path, filename="output.mp4", media_type="video/mp4")
+
+#  Run API
 # uvicorn api:app --host 0.0.0.0 --port 8000
